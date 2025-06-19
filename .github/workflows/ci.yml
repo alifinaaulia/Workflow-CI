@@ -33,9 +33,9 @@ jobs:
           pip install mlflow scikit-learn pandas numpy joblib
 
       # Run MLflow Project
-      - name: Run MLflow project
-        run: |
-          mlflow run . --env-manager=local
+      - name: Run mlflow project
+        run: mlflow run MLProject --env-manager=local
+
 
       # Get Latest Run ID
       - name: Get latest MLflow run_id
