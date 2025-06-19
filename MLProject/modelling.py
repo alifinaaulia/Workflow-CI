@@ -42,19 +42,7 @@ def run_hybrid_modeling(n_components):
         # Matrix pembelian
         user_item_matrix = df.pivot_table(index='CustomerID', columns='Description',
                                           values='TotalPrice', aggfunc='sum', fill_value=0)
-        
-        columns_path = os.path.abspath("model_columns.pkl")
-        joblib.dump(user_item_matrix.columns, columns_path)
 
-        # Log sebagai artifact tambahan
-        mlflow.pyfunc.log_model(
-            artifact_path="model",
-            python_model=SVDRecommender(),
-            artifacts={
-                "svd_model": model_path,
-                "model_columns": columns_path
-            }
-        )
 
         # Collaborative Filtering (SVD)
         svd = TruncatedSVD(n_components=n_components, random_state=42)
@@ -63,12 +51,17 @@ def run_hybrid_modeling(n_components):
         # Simpan model sementara
         model_path = "svd_model.pkl"
         joblib.dump(svd, model_path)
-
+        columns_path = os.path.abspath("model_columns.pkl")
+        joblib.dump(user_item_matrix.columns, columns_path)
+        
         # Logging model
         mlflow.pyfunc.log_model(
             artifact_path="model",
             python_model=SVDRecommender(),
-            artifacts={"svd_model": model_path}
+            artifacts={
+                "svd_model": model_path,
+                "model_columns": columns_path
+            }
         )
 
         print("\nModel successfully logged. Run ID:", run.info.run_id)
