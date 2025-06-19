@@ -1,11 +1,7 @@
 name: hybrid_recommender
 
-conda_env: conda.yaml
-
 entry_points:
   main:
     parameters:
       n_components: {type: int, default: 50}
-    command: >
-      python modelling.py --n_components {n_components}
-
+    command: "python model.py --n_components {n_components}"

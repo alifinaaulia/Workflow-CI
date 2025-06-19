@@ -2,54 +2,68 @@ name: CI/CD MLflow
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  MLFLOW_TRACKING_URI: file://$(pwd)/mlruns
+  MODEL_NAME: hybrid-recommender
 
 jobs:
-  train-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # Checkout Repo
+      - uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # Setup Python
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.12"
 
+      # Install Dependencies
       - name: Install dependencies
         run: |
-          cd MLProject
-          pip install -r requirements.txt
-          pip install mlflow
+          python -m pip install --upgrade pip
+          pip install mlflow scikit-learn pandas numpy joblib
 
-      - name: Run training
+      # Run MLflow Project
+      - name: Run MLflow project
         run: |
-          cd MLProject
-          python modelling.py --n_components 50
+          mlflow run . --env-manager=local
 
-      - name: Copy model artifact
+      # Get Latest Run ID
+      - name: Get latest MLflow run_id
+        id: get_run_id
         run: |
-          cd MLProject
-          latest_run=$(ls -td mlruns/0/* | head -1)
-          if [ ! -d "$latest_run/artifacts/model" ]; then
-            echo "No model directory found in latest run"
-            exit 1
-          fi
-          mkdir -p model
-          cp -r "$latest_run/artifacts/model/." model/
+          RUN_ID=$(ls -td mlruns/0/* | head -1 | xargs -n1 basename)
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
-      - name: Log in to Docker Hub
+      # Build Docker Image from Model
+      - name: Build Docker Image
+        run: |
+          echo "Using run_id: $RUN_ID"
+          mlflow models build-docker --model-uri "mlruns/0/$RUN_ID/artifacts/model" --name $MODEL_NAME
+
+      # Login to Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker Image with MLflow
+      # Tag Docker Image
+      - name: Tag Docker Image
         run: |
-          cd MLProject
-          mlflow models build-docker --model-uri ./model --name alifinaaulia/mlflow-ci-recommender
+          docker tag $MODEL_NAME ${{ secrets.DOCKERHUB_USERNAME }}/$MODEL_NAME:latest
 
-      - name: Push Docker Image to Docker Hub
-        run: docker push alifinaaulia/mlflow-ci-recommender
+      # Push Docker Image
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/$MODEL_NAME:latest
