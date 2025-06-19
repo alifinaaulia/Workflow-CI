@@ -7,10 +7,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 import mlflow
 import mlflow.sklearn
 import os
+import joblib
+
+print("Tracking URI:", mlflow.get_tracking_uri())
 
 def run_hybrid_modeling(n_components):
-    # Aktifkan autolog MLflow
-    mlflow.sklearn.autolog()
+
 
     with mlflow.start_run(run_name="Hybrid Recommender") as run:
         # Load data
@@ -49,8 +51,13 @@ def run_hybrid_modeling(n_components):
             top_indices = np.argsort(hybrid_scores)[::-1][:10]
             recommendations = [index_to_product[i] for i in top_indices]
 
-        # Logging model ke MLflow (agar bisa digunakan Docker)
-        mlflow.sklearn.log_model(svd, artifact_path="model")
+        print("SVD Model:", svd)
+
+        joblib.dump(svd, "model.pkl")
+        mlflow.log_artifact("model.pkl", artifact_path="model")
+
+
+
 
         # Output
         print("\nHybrid Recommender Inference")
