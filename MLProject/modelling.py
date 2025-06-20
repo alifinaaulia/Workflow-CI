@@ -21,14 +21,7 @@ class HybridRecommender(mlflow.pyfunc.PythonModel):
         self.index_to_product = joblib.load(context.artifacts["index_to_product"])
 
     def predict(self, context, model_input):
-        """
-        model_input = {
-            "CustomerID": float,
-            "QueryProduct": str
-        }
-        """
         import pandas as pd
-
         data = pd.read_csv("online_retail_preprocessing.csv")
         user_item_matrix = data.pivot_table(index='CustomerID', columns='Description',
                                             values='TotalPrice', aggfunc='sum', fill_value=0)
@@ -42,13 +35,13 @@ class HybridRecommender(mlflow.pyfunc.PythonModel):
         if query_product not in self.product_to_index:
             return [f"QueryProduct '{query_product}' not found"]
 
-        # Collaborative filtering
+        # Collaborative
         customer_vector = user_item_matrix.loc[customer_id].reindex(self.model_columns, fill_value=0)
         latent_vector = self.svd.transform([customer_vector])
         item_embeddings = normalize(self.svd.components_.T)
         collab_scores = latent_vector.dot(item_embeddings.T).flatten()
 
-        # Content-based
+        # Content
         content_scores = self.cosine_sim[self.product_to_index[query_product]]
 
         # Hybrid
@@ -60,20 +53,18 @@ class HybridRecommender(mlflow.pyfunc.PythonModel):
 
 
 def train_and_log(n_components):
-    # Load data langsung
     df = pd.read_csv("online_retail_preprocessing.csv")
-
     user_item_matrix = df.pivot_table(index='CustomerID', columns='Description',
                                       values='TotalPrice', aggfunc='sum', fill_value=0)
     products = user_item_matrix.columns.tolist()
 
-    # Collaborative Filtering
+    # Collaborative
     svd = TruncatedSVD(n_components=n_components, random_state=42)
     svd.fit(user_item_matrix)
     joblib.dump(svd, "svd_model.pkl")
     joblib.dump(products, "model_columns.pkl")
 
-    # Content-Based Filtering
+    # Content-Based
     tfidf = TfidfVectorizer(stop_words="english")
     tfidf_matrix = tfidf.fit_transform(products)
     cosine_sim = cosine_similarity(tfidf_matrix)
@@ -85,7 +76,7 @@ def train_and_log(n_components):
     joblib.dump(product_to_index, "product_to_index.pkl")
     joblib.dump(index_to_product, "index_to_product.pkl")
 
-    # Logging model
+    # Logging model (NO start_run here)
     mlflow.pyfunc.log_model(
         artifact_path="model",
         python_model=HybridRecommender(),
@@ -105,10 +96,4 @@ if __name__ == "__main__":
     parser.add_argument("--n_components", type=int, default=50)
     args = parser.parse_args()
 
-    mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
-
-    if mlflow.active_run():
-        train_and_log(args.n_components)
-    else:
-        with mlflow.start_run(run_name="Hybrid Recommender"):
-            train_and_log(args.n_components)
+    train_and_log(args.n_components)
