@@ -21,40 +21,36 @@ class HybridRecommender(mlflow.pyfunc.PythonModel):
         self.index_to_product = joblib.load(context.artifacts["index_to_product"])
 
     def predict(self, context, model_input):
-        if isinstance(model_input, dict):
-            import pandas as pd
-            model_input = pd.DataFrame([model_input])
 
-        results = []
+        # Baca input dari format dataframe (bukan dict!)
+        if isinstance(model_input, pd.DataFrame):
+            customer_id = model_input.iloc[0]["CustomerID"]
+            query_product = model_input.iloc[0]["QueryProduct"]
+        else:
+            return ["Invalid input format"]
+
         data = pd.read_csv("online_retail_preprocessing.csv")
         user_item_matrix = data.pivot_table(index='CustomerID', columns='Description',
                                             values='TotalPrice', aggfunc='sum', fill_value=0)
 
-        for _, row in model_input.iterrows():
-            customer_id = row["CustomerID"]
-            query_product = row["QueryProduct"]
+        if customer_id not in user_item_matrix.index:
+            return [f"CustomerID {customer_id} not found"]
 
-            if customer_id not in user_item_matrix.index:
-                results.append([f"CustomerID {customer_id} not found"])
-                continue
+        if query_product not in self.product_to_index:
+            return [f"QueryProduct '{query_product}' not found"]
 
-            if query_product not in self.product_to_index:
-                results.append([f"QueryProduct '{query_product}' not found"])
-                continue
+        customer_vector = user_item_matrix.loc[customer_id].reindex(self.model_columns, fill_value=0)
+        latent_vector = self.svd.transform([customer_vector])
+        item_embeddings = normalize(self.svd.components_.T)
+        collab_scores = latent_vector.dot(item_embeddings.T).flatten()
 
-            customer_vector = user_item_matrix.loc[customer_id].reindex(self.model_columns, fill_value=0)
-            latent_vector = self.svd.transform([customer_vector])
-            item_embeddings = normalize(self.svd.components_.T)
-            collab_scores = latent_vector.dot(item_embeddings.T).flatten()
+        content_scores = self.cosine_sim[self.product_to_index[query_product]]
+        hybrid_scores = (collab_scores + content_scores) / 2
 
-            content_scores = self.cosine_sim[self.product_to_index[query_product]]
-            hybrid_scores = (collab_scores + content_scores) / 2
+        top_indices = np.argsort(hybrid_scores)[::-1][:10]
+        recommendations = [self.index_to_product[i] for i in top_indices]
 
-            top_indices = np.argsort(hybrid_scores)[::-1][:10]
-            recommendations = [self.index_to_product[i] for i in top_indices]
-            results.append(recommendations)
-
-        return results
+        return [recommendations]  
 
 
 def train_and_log_model(n_components):
