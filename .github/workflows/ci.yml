@@ -28,8 +28,9 @@ jobs:
           pip install -r MLProject/requirements.txt
           pip install mlflow joblib scikit-learn pandas numpy
 
-          - name: Run MLflow project
-          run: MLFLOW_TRACKING_URI=file://$GITHUB_WORKSPACE/mlruns mlflow run MLProject --env-manager=local        
+      - name: Run MLflow project
+        run: MLFLOW_TRACKING_URI=file://$GITHUB_WORKSPACE/mlruns mlflow run MLProject --env-manager=local
+        
 
       - name: Get latest MLflow run_id
         run: |
