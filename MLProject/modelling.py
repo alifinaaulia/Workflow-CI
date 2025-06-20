@@ -48,9 +48,8 @@ def run_hybrid_modeling(n_components):
         mlflow.end_run()
     mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
     with mlflow.start_run(run_name="Hybrid Recommender", nested=True) as run:
-        # Load from GitHub Actions env or fallback to local
-        csv_url = os.getenv("CSV_URL", "MLProject/online_retail_preprocessing.csv")
-        df = pd.read_csv(csv_url)
+        # Load
+        df = pd.read_csv("online_retail_preprocessing.csv")
 
         user_item_matrix = df.pivot_table(index='CustomerID', columns='Description',
                                           values='TotalPrice', aggfunc='sum', fill_value=0)
