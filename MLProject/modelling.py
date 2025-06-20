@@ -23,13 +23,8 @@ class SVDRecommender(mlflow.pyfunc.PythonModel):
         else:
             model_input = pd.DataFrame(model_input)
 
-        # Isi kolom yang hilang dengan 0
-        for col in self.model_columns:
-            if col not in model_input.columns:
-                model_input[col] = 0
-
-        # Pastikan urutan kolom sesuai
-        model_input = model_input[self.model_columns]
+        # Pastikan semua kolom tersedia dan urutannya benar, isi yang hilang dengan 0
+        model_input = model_input.reindex(columns=self.model_columns, fill_value=0)
 
         return self.svd.transform(model_input)
 
