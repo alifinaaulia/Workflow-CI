@@ -47,7 +47,7 @@ def run_hybrid_modeling(n_components):
     if mlflow.active_run():
         mlflow.end_run()
     mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
-    with mlflow.start_run(run_name="Hybrid Recommender", nested=True) as run:
+    with mlflow.start_run(run_name="Hybrid Recommender") as run:
         # Load
         df = pd.read_csv("online_retail_preprocessing.csv")
 
