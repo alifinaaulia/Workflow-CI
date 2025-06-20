@@ -43,6 +43,9 @@ class HybridRecommender(mlflow.pyfunc.PythonModel):
 
 
 def run_hybrid_modeling(n_components):
+    # Cegah run ID ghost error
+    if mlflow.active_run():
+        mlflow.end_run()
     mlflow.set_tracking_uri("file://" + os.path.abspath("mlruns"))
     with mlflow.start_run(run_name="Hybrid Recommender") as run:
         # Load from GitHub Actions env or fallback to local
